@@ -1,15 +1,15 @@
-import { mockProjects } from "../data/mock";
 import type { ProjectInfo } from "../types/session";
 
 interface SidebarProps {
-  selectedProject: string;
-  onSelectProject: (name: string) => void;
+  projects: ProjectInfo[];
+  selectedProject: string | null;
+  onSelectProject: (encodedPath: string) => void;
   searchQuery: string;
   onSearchChange: (query: string) => void;
 }
 
-export function Sidebar({ selectedProject, onSelectProject, searchQuery, onSearchChange }: SidebarProps) {
-  const totalSessions = mockProjects.reduce((sum, p) => sum + p.sessionCount, 0);
+export function Sidebar({ projects, selectedProject, onSelectProject, searchQuery, onSearchChange }: SidebarProps) {
+  const totalSessions = projects.reduce((sum, p) => sum + p.sessionCount, 0);
 
   return (
     <aside className="sidebar">
@@ -31,11 +31,11 @@ export function Sidebar({ selectedProject, onSelectProject, searchQuery, onSearc
       </div>
 
       <nav className="sidebar-projects">
-        {mockProjects.map((project: ProjectInfo) => (
+        {projects.map((project: ProjectInfo) => (
           <div
-            key={project.name}
-            className={`project-item ${selectedProject === project.name ? "project-item-selected" : ""}`}
-            onClick={() => onSelectProject(project.name)}
+            key={project.encodedPath}
+            className={`project-item ${selectedProject === project.encodedPath ? "project-item-selected" : ""}`}
+            onClick={() => onSelectProject(project.encodedPath)}
           >
             <span className="project-name">{project.name}</span>
             <span className="project-badge">{project.sessionCount}</span>
@@ -45,7 +45,7 @@ export function Sidebar({ selectedProject, onSelectProject, searchQuery, onSearc
 
       <div className="sidebar-footer">
         <span className="sidebar-settings">⚙</span>
-        <span className="sidebar-stats">{mockProjects.length} projects · {totalSessions.toLocaleString()} sessions</span>
+        <span className="sidebar-stats">{projects.length} projects · {totalSessions.toLocaleString()} sessions</span>
       </div>
     </aside>
   );

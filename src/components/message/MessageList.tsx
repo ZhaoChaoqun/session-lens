@@ -1,9 +1,9 @@
-import type { Message } from "../../types/session";
+import type { ConversationMessage } from "../../types/session";
 import { UserMessage } from "./UserMessage";
 import { AssistantMessage } from "./AssistantMessage";
 
 interface MessageListProps {
-  messages: Message[];
+  messages: ConversationMessage[];
 }
 
 export function MessageList({ messages }: MessageListProps) {
