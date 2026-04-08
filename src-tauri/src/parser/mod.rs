@@ -3,7 +3,14 @@ use serde_json::Value;
 use std::fs::{self, File};
 use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
+use std::sync::LazyLock;
 use std::time::SystemTime;
+
+static CREW_ROLES_RE: LazyLock<regex::Regex> =
+    LazyLock::new(|| regex::Regex::new(r"--crew-roles-.*$").unwrap());
+
+static XML_TAG_RE: LazyLock<regex::Regex> =
+    LazyLock::new(|| regex::Regex::new(r"<[^>]+>").unwrap());
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -51,8 +58,7 @@ pub struct Conversation {
 /// Extract human-readable project name from encoded directory name.
 pub fn extract_project_name(encoded: &str) -> String {
     // Remove --crew-roles-* suffix
-    let cleaned = regex::Regex::new(r"--crew-roles-.*$")
-        .unwrap()
+    let cleaned = CREW_ROLES_RE
         .replace(encoded, "")
         .to_string();
 
@@ -79,23 +85,54 @@ pub fn extract_project_name(encoded: &str) -> String {
 }
 
 /// Decode the encoded project path back to a filesystem path.
+///
+/// Claude Code encodes paths by replacing `/` with `-`, making the encoding
+/// ambiguous (a `-` could be a separator or part of a directory name like
+/// `claude-web-chat`). We resolve this by greedily matching segments against
+/// the real filesystem.
 pub fn decode_project_path(encoded: &str) -> String {
-    let cleaned = regex::Regex::new(r"--crew-roles-.*$")
-        .unwrap()
-        .replace(encoded, "")
-        .to_string();
+    let cleaned = CREW_ROLES_RE.replace(encoded, "").to_string();
 
     if cleaned.is_empty() || cleaned == "-" {
         return "/".to_string();
     }
 
-    let path = cleaned.replacen('-', "/", cleaned.len());
-
-    if path.starts_with('/') {
-        path
-    } else {
-        format!("/{}", path)
+    // Split by `-`, filter empties (leading dash produces one)
+    let parts: Vec<&str> = cleaned.split('-').filter(|s| !s.is_empty()).collect();
+    if parts.is_empty() {
+        return "/".to_string();
     }
+
+    // Greedily match segments against filesystem
+    let mut resolved = String::from("/");
+    let mut i = 0;
+
+    while i < parts.len() {
+        // Try longest possible segment first (greedy)
+        let mut matched = false;
+        for end in (i + 1..=parts.len()).rev() {
+            let candidate = parts[i..end].join("-");
+            let test_path = format!("{}{}", resolved, candidate);
+            if Path::new(&test_path).exists() {
+                resolved = format!("{}/", test_path);
+                i = end;
+                matched = true;
+                break;
+            }
+        }
+        if !matched {
+            // No filesystem match — fall back to single segment
+            resolved = format!("{}{}/", resolved, parts[i]);
+            i += 1;
+        }
+    }
+
+    // Remove trailing slash
+    if resolved.len() > 1 && resolved.ends_with('/') {
+        resolved.pop();
+    }
+
+    resolved
 }
 
 /// Scan ~/.claude/projects/ and return project list.
@@ -349,8 +386,9 @@ fn extract_user_summary(entry: &Value) -> Option<String> {
         return None;
     }
 
-    let summary = if cleaned.len() > 200 {
-        format!("{}...", &cleaned[..200])
+    let summary = if cleaned.chars().count() > 200 {
+        let truncated: String = cleaned.chars().take(200).collect();
+        format!("{}...", truncated)
     } else {
         cleaned.to_string()
     };
@@ -360,10 +398,7 @@ fn extract_user_summary(entry: &Value) -> Option<String> {
 
 /// Strip XML-like tags from text.
 fn strip_xml_tags(text: &str) -> String {
-    regex::Regex::new(r"<[^>]+>")
-        .unwrap()
-        .replace_all(text, "")
-        .to_string()
+    XML_TAG_RE.replace_all(text, "").to_string()
 }
 
 /// Parse a full JSONL session file into conversation messages.

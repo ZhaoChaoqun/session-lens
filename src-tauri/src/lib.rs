@@ -2,7 +2,6 @@ pub mod cache;
 pub mod parser;
 
 use parser::{Conversation, ProjectInfo, SessionMeta};
-use std::path::PathBuf;
 
 #[tauri::command]
 fn list_projects() -> Result<Vec<ProjectInfo>, String> {
@@ -28,11 +27,19 @@ fn list_sessions(project_encoded_path: &str) -> Result<Vec<SessionMeta>, String>
 }
 
 #[tauri::command]
-fn get_conversation(session_path: &str) -> Result<Conversation, String> {
-    let path = PathBuf::from(session_path);
+fn get_conversation(project_encoded_path: &str, session_id: &str) -> Result<Conversation, String> {
+    // Reject path traversal attempts
+    if project_encoded_path.contains("..") || session_id.contains("..") || session_id.contains('/') {
+        return Err("Invalid path components".to_string());
+    }
+
+    let base_dir = parser::get_projects_dir().ok_or("Cannot find Claude projects directory")?;
+    let path = base_dir
+        .join(project_encoded_path)
+        .join(format!("{}.jsonl", session_id));
 
     if !path.exists() {
-        return Err(format!("Session file not found: {}", session_path));
+        return Err(format!("Session file not found: {}/{}", project_encoded_path, session_id));
     }
 
     Ok(parser::parse_conversation(&path))

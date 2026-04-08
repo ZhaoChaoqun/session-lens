@@ -1,41 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import type { ProjectInfo, SessionMeta, Conversation } from "./types/session";
 import "./App.css";
-
-interface ProjectInfo {
-  name: string;
-  path: string;
-  encodedPath: string;
-  sessionCount: number;
-  lastActive: number;
-}
-
-interface SessionMeta {
-  id: string;
-  project: string;
-  projectPath: string;
-  timestamp: number;
-  summary: string;
-  messageCount: number;
-  branch: string;
-  cwd: string;
-  fileSize: number;
-  inputTokens: number;
-  outputTokens: number;
-}
-
-interface ConversationMessage {
-  role: string;
-  content: unknown;
-  timestamp?: string;
-  model?: string;
-  uuid?: string;
-}
-
-interface Conversation {
-  id: string;
-  messages: ConversationMessage[];
-}
 
 function formatTime(ts: number): string {
   const d = new Date(ts);
@@ -111,16 +77,16 @@ function App() {
     setSelectedSession(meta.id);
     setLoading(true);
     try {
-      const sessionPath = `${meta.projectPath}/${meta.id}.jsonl`;
       const result = await invoke<Conversation>("get_conversation", {
-        sessionPath,
+        projectEncodedPath: selectedProject,
+        sessionId: meta.id,
       });
       setConversation(result);
     } catch (e) {
       console.error(e);
     }
     setLoading(false);
-  }, []);
+  }, [selectedProject]);
 
   const filteredSessions = search
     ? sessions.filter(
