@@ -10,6 +10,10 @@ export interface SessionMeta {
   fileSize: number;
   inputTokens: number;
   outputTokens: number;
+  tokenUsage?: {
+    input: number;
+    output: number;
+  };
 }
 
 export interface ProjectInfo {
@@ -38,3 +42,7 @@ export interface Conversation {
   id: string;
   messages: ConversationMessage[];
 }
+
+// Backwards-compatible aliases for components from PR #2/#3
+export type Message = ConversationMessage;
+export type SessionDetail = Conversation;
