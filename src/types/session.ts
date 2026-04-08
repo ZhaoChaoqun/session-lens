@@ -1,0 +1,40 @@
+export interface SessionMeta {
+  id: string;
+  project: string;
+  projectPath: string;
+  timestamp: number;
+  summary: string;
+  messageCount: number;
+  branch: string;
+  cwd: string;
+  fileSize: number;
+  tokenUsage?: {
+    input: number;
+    output: number;
+  };
+}
+
+export interface ProjectInfo {
+  name: string;
+  path: string;
+  sessionCount: number;
+  lastActive: number;
+}
+
+export type ContentBlock =
+  | { type: "text"; text: string }
+  | { type: "thinking"; thinking: string }
+  | { type: "tool_use"; id: string; name: string; input: Record<string, unknown> }
+  | { type: "tool_result"; tool_use_id: string; content: string };
+
+export interface Message {
+  role: "user" | "assistant";
+  content: string | ContentBlock[];
+  timestamp?: string;
+  model?: string;
+}
+
+export interface SessionDetail {
+  id: string;
+  messages: Message[];
+}
